@@ -25,7 +25,7 @@ class User extends Model
     public function verifyCredentials(string $email, string $password): ?array
     {
         $user = $this->findByEmail($email);
-        if (!$user) {
+        if (!$user || ($user['status'] ?? 'Aktif') !== 'Aktif') {
             return null;
         }
 
@@ -39,4 +39,3 @@ class User extends Model
         return null;
     }
 }
-

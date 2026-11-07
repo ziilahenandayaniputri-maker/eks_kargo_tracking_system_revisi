@@ -58,10 +58,13 @@ $activeNav = current_route();
                 <div class="user-role"><?= e($currentUser['role'] ?? 'Admin Gudang') ?></div>
             </div>
         </div>
-        <a href="<?= base_url('auth/logout') ?>" class="logout-btn" title="Keluar / Logout">
+        <form action="<?= base_url('auth/logout') ?>" method="POST">
+            <?= \Core\Security::csrfField() ?>
+            <button type="submit" class="logout-btn" title="Keluar / Logout">
             <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
             </svg>
-        </a>
+            </button>
+        </form>
     </div>
 </aside>

@@ -23,10 +23,10 @@ class RegulerTarifCalculator implements TarifCalculatorInterface
         return round($singleVolume * max(1, $koli), 1);
     }
 
-    public function getChargeableWeight(float $beratAktual, float $beratVolume): float
+    public function getChargeableWeight(float $beratAktual, float $beratVolume, float $minimumRute = 0.0): float
     {
         $weight = max($beratAktual, $beratVolume);
-        return max($weight, $this->minWeight);
+        return max($weight, $this->minWeight, $minimumRute);
     }
 
     public function calculateTotalOngkir(float $chargeableWeight, float $tarifPerKg, int $koli = 1): float
@@ -40,4 +40,3 @@ class RegulerTarifCalculator implements TarifCalculatorInterface
         return 'Reguler';
     }
 }
-

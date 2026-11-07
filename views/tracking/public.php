@@ -97,7 +97,7 @@
                                         <?php if ($cp['ttd_digital']): ?>
                                             <div>
                                                 <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">Tanda Tangan Penerima</div>
-                                                <img src="<?= $cp['ttd_digital'] ?>" alt="TTD" class="h-16 w-32 object-contain bg-white border border-slate-300 rounded p-1">
+                                                <img src="<?= e($cp['ttd_digital']) ?>" alt="TTD" class="h-16 w-32 object-contain bg-white border border-slate-300 rounded p-1">
                                             </div>
                                         <?php endif; ?>
                                         <?php if ($cp['nama_penerima']): ?>
@@ -134,4 +134,3 @@
 
 </body>
 </html>
-

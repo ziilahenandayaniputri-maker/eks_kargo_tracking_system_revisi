@@ -29,12 +29,14 @@ class WilayahController extends Controller
 
         $wilayahList = $this->wilayahModel->all('*', 'nama_kota ASC');
         $ruteList = $this->ruteModel->getRuteWithWilayah('r.kode_rute ASC');
+        $availableRuteList = $this->ruteModel->getAvailableForShipment();
         $stats = $this->wilayahModel->getSummaryStats();
 
         $this->view('wilayah/index', [
             'user' => $user,
             'wilayahList' => $wilayahList,
             'ruteList' => $ruteList,
+            'availableRuteList' => $availableRuteList,
             'stats' => $stats,
             'pageTitle' => 'Wilayah, Rute & Tarif - KargoTrack'
         ]);
@@ -46,6 +48,7 @@ class WilayahController extends Controller
     public function store(): void
     {
         $this->requireAuth();
+        $this->requireCsrf('wilayah');
 
         $data = [
             'kode_kota' => strtoupper(trim($_POST['kode_kota'] ?? '')),
@@ -99,6 +102,7 @@ class WilayahController extends Controller
     public function update(): void
     {
         $this->requireAuth();
+        $this->requireCsrf('wilayah');
         $id = (int)($_POST['id'] ?? 0);
 
         $data = [
@@ -142,6 +146,7 @@ class WilayahController extends Controller
     public function delete(): void
     {
         $this->requireAuth();
+        $this->requireCsrf('wilayah');
         $id = (int)($_POST['id'] ?? 0);
 
         if ($id <= 0) {
@@ -168,4 +173,3 @@ class WilayahController extends Controller
         $this->json(['success' => true, 'data' => $results]);
     }
 }
-

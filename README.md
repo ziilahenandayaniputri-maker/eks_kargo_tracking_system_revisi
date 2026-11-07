@@ -170,7 +170,8 @@ Aplikasi telah terintegrasi di web server Laragon:
 ### Opsi 1: Menggunakan Laragon (Sangat Disarankan)
 1. Buka aplikasi **Laragon**.
 2. Pastikan service **Apache** dan **MySQL** aktif (*Start All*).
-3. Buka browser dan kunjungi:
+3. Saat aplikasi pertama kali dijalankan, tabel database yang belum tersedia dibuat dari `database/schema.sql` dan data awal dimasukkan otomatis.
+4. Buka browser dan kunjungi:
    ```
    http://localhost/eks_kargo_tracking_system_revisi/
    ```
@@ -205,4 +206,3 @@ Lalu buka: `http://localhost:8000/`
 ---
 
 Dibuat dengan standar kode tinggi, modular, bersih, dan sesuai dengan seluruh spesifikasi studi kasus ekspedisi kargo logistik antar-kota.
-

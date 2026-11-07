@@ -166,6 +166,7 @@
             if (window.CSRF_TOKEN) formData.append('_csrf', window.CSRF_TOKEN);
             fetch(window.BASE_URL + '/manifest/berangkatkan', {
                 method: 'POST',
+                headers: { 'Accept': 'application/json' },
                 body: formData
             })
             .then(res => res.json())
@@ -180,4 +181,3 @@
         }
     }
 </script>
-

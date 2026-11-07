@@ -122,6 +122,24 @@ abstract class Controller
     }
 
     /**
+     * Reject state-changing requests without a valid CSRF token.
+     */
+    protected function requireCsrf(string $redirectPath): void
+    {
+        if ($this->verifyCsrf()) {
+            return;
+        }
+
+        $message = 'Token keamanan tidak valid. Silakan muat ulang halaman.';
+        if ($this->isAjax()) {
+            $this->json(['success' => false, 'message' => $message], 403);
+        }
+
+        $this->setFlash('error', $message);
+        $this->redirect($redirectPath);
+    }
+
+    /**
      * Set Flash Message
      */
     protected function setFlash(string $key, string $message): void
@@ -129,4 +147,3 @@ abstract class Controller
         Session::setFlash($key, $message);
     }
 }
-

@@ -71,6 +71,7 @@ $p = $prefill ?? [];
                             <?php foreach ($ruteList as $r): ?>
                                 <option value="<?= $r['id'] ?>" 
                                         data-tarif="<?= $r['tarif_per_kg'] ?>"
+                                        data-min-berat="<?= $r['min_berat_kg'] ?>"
                                         data-asal-kode="<?= e($r['asal_kode']) ?>"
                                         data-tujuan-kode="<?= e($r['tujuan_kode']) ?>"
                                         data-asal-nama="<?= e($r['asal_nama']) ?>"
@@ -181,7 +182,7 @@ $p = $prefill ?? [];
             <!-- Dynamic Barcode Representation -->
             <div class="text-center py-1">
                 <svg id="preview-barcode-svg" class="barcode-svg mx-auto"></svg>
-                <div id="preview-no-resi" class="font-mono text-xs font-bold text-slate-800 mt-1">KT-CRB-261030-0047</div>
+                <div id="preview-no-resi" class="font-mono text-xs font-bold text-slate-800 mt-1"><?= e($latestResi['no_resi'] ?? 'Belum ada resi') ?></div>
             </div>
             
             <div class="border-t border-dashed border-slate-300 my-2"></div>
@@ -225,7 +226,7 @@ $p = $prefill ?? [];
             <div class="border-t border-dashed border-slate-300 my-2"></div>
             
             <div id="preview-lacak-text" class="text-[10px] text-center text-slate-400 font-mono">
-                Lacak: kargotrack.id/KT-CRB-261030-0047
+                Lacak: kargotrack.id/<?= e($latestResi['no_resi'] ?? '-') ?>
             </div>
         </div>
 
@@ -280,8 +281,7 @@ $p = $prefill ?? [];
 
 <script>
     let currentReceiptFormat = 'thermal';
-    let currentActiveResiNo = '<?= e($latestResi['no_resi'] ?? 'KT-CRB-261030-0047') ?>';
-    let currentActiveResiId = <?= (int)($latestResi['id'] ?? 1) ?>;
+    let currentActiveResiId = <?= (int)($latestResi['id'] ?? 0) ?>;
 
     function setReceiptFormat(format) {
         currentReceiptFormat = format;
@@ -304,8 +304,7 @@ $p = $prefill ?? [];
         if (currentActiveResiId) {
             window.open(window.BASE_URL + '/resi/printReceipt/' + currentActiveResiId + '/' + currentReceiptFormat, '_blank');
         } else {
-            window.print();
+            alert('Terbitkan atau pilih resi terlebih dahulu sebelum mencetak.');
         }
     }
 </script>
-

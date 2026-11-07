@@ -64,6 +64,7 @@ class TrackingController extends Controller
     public function storeCheckpoint(): void
     {
         $user = $this->requireAuth();
+        $this->requireCsrf('tracking');
         $resiId = (int)($_POST['resi_id'] ?? 0);
 
         $resi = $this->resiModel->find($resiId);
@@ -81,14 +82,29 @@ class TrackingController extends Controller
             $this->json(['success' => false, 'message' => 'Status dan lokasi checkpoint wajib diisi.'], 422);
         }
 
+        $isDelivered = $status === 'Diterima penerima';
+        if ($isDelivered && $namaPenerima === '') {
+            $this->json(['success' => false, 'message' => 'Nama penerima wajib diisi untuk status serah terima.'], 422);
+        }
+
         // Handle Upload Foto Bukti Serah Terima (POD)
         $fotoBuktiName = null;
-        if (isset($_FILES['foto_bukti']) && $_FILES['foto_bukti']['error'] === UPLOAD_ERR_OK) {
-            $file = $_FILES['foto_bukti'];
+        $file = $_FILES['foto_bukti'] ?? null;
+        if ($isDelivered && $file && $file['error'] !== UPLOAD_ERR_NO_FILE && $file['error'] !== UPLOAD_ERR_OK) {
+            $this->json(['success' => false, 'message' => 'Foto bukti gagal diunggah. Silakan coba kembali.'], 422);
+        }
+        if ($isDelivered && $file && $file['error'] === UPLOAD_ERR_OK) {
             $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
             $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $mimeType = (new \finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+            $mimeByExtension = [
+                'jpg' => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'png' => 'image/png',
+                'webp' => 'image/webp'
+            ];
 
-            if (!in_array($ext, $allowedExts)) {
+            if (!in_array($ext, $allowedExts, true) || ($mimeByExtension[$ext] ?? null) !== $mimeType) {
                 $this->json(['success' => false, 'message' => 'Format foto harus JPG, PNG, atau WEBP.'], 422);
             }
 
@@ -98,24 +114,37 @@ class TrackingController extends Controller
 
             $uploadDir = (defined('ROOT_DIR') ? ROOT_DIR : dirname(__DIR__)) . '/public/uploads/pod/';
             if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0777, true);
+                if (!mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
+                    $this->json(['success' => false, 'message' => 'Direktori unggahan bukti tidak dapat dibuat.'], 500);
+                }
             }
 
-            $fotoBuktiName = 'pod_' . $resi['id'] . '_' . time() . '.' . $ext;
-            move_uploaded_file($file['tmp_name'], $uploadDir . $fotoBuktiName);
+            $fotoBuktiName = 'pod_' . $resi['id'] . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+            if (!move_uploaded_file($file['tmp_name'], $uploadDir . $fotoBuktiName)) {
+                $this->json(['success' => false, 'message' => 'Foto bukti gagal disimpan. Silakan coba kembali.'], 500);
+            }
         }
 
         // Handle Tanda Tangan Digital (Base64 dari Canvas)
-        $ttdDigital = $_POST['ttd_digital'] ?? null;
-        if (empty($ttdDigital) || strlen($ttdDigital) < 50) {
+        $ttdDigital = $isDelivered ? ($_POST['ttd_digital'] ?? null) : null;
+        if ($ttdDigital !== null && $ttdDigital !== '') {
+            if (strlen($ttdDigital) > 2 * 1024 * 1024
+                || !preg_match('/^data:image\/png;base64,[A-Za-z0-9+\/]+={0,2}$/', $ttdDigital)) {
+                $this->json(['success' => false, 'message' => 'Format tanda tangan digital tidak valid.'], 422);
+            }
+        } else {
             $ttdDigital = null;
+        }
+
+        if ($isDelivered && $fotoBuktiName === null && $ttdDigital === null) {
+            $this->json(['success' => false, 'message' => 'Foto bukti atau tanda tangan wajib diisi untuk serah terima.'], 422);
         }
 
         $checkpointData = [
             'status' => $status,
             'lokasi' => $lokasi,
             'waktu' => $waktu,
-            'nama_penerima' => !empty($namaPenerima) ? $namaPenerima : null,
+            'nama_penerima' => $isDelivered ? $namaPenerima : null,
             'petugas' => ($user['nama'] ?? 'Rizqi') . ' - Petugas',
             'keterangan' => $keterangan,
             'foto_bukti' => $fotoBuktiName,
@@ -185,4 +214,3 @@ class TrackingController extends Controller
         ]);
     }
 }
-

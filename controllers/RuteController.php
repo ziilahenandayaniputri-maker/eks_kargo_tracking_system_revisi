@@ -25,6 +25,7 @@ class RuteController extends Controller
     public function store(): void
     {
         $this->requireAuth();
+        $this->requireCsrf('wilayah');
 
         $asalId = (int)($_POST['kota_asal_id'] ?? 0);
         $tujuanId = (int)($_POST['kota_tujuan_id'] ?? 0);
@@ -86,6 +87,7 @@ class RuteController extends Controller
     public function update(): void
     {
         $this->requireAuth();
+        $this->requireCsrf('wilayah');
         $id = (int)($_POST['id'] ?? 0);
 
         $data = [
@@ -125,6 +127,7 @@ class RuteController extends Controller
     public function delete(): void
     {
         $this->requireAuth();
+        $this->requireCsrf('wilayah');
         $id = (int)($_POST['id'] ?? 0);
 
         if ($id <= 0) {
@@ -151,4 +154,3 @@ class RuteController extends Controller
         $this->json(['success' => true, 'data' => $results]);
     }
 }
-

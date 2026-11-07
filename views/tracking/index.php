@@ -112,7 +112,7 @@ $latestCp = end($cpList);
                                     <div>
                                         <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">Tanda Tangan Digital</div>
                                         <div class="p-1 bg-white border border-slate-300 rounded shadow-sm">
-                                            <img src="<?= $cp['ttd_digital'] ?>" alt="TTD Digital" class="h-16 w-32 object-contain">
+                                            <img src="<?= e($cp['ttd_digital']) ?>" alt="TTD Digital" class="h-16 w-32 object-contain">
                                         </div>
                                     </div>
                                 <?php endif; ?>
@@ -194,6 +194,7 @@ $latestCp = end($cpList);
             <div class="form-group mb-0">
                 <label class="form-label text-xs" for="checkpoint-status">Status</label>
                 <select id="checkpoint-status" name="status" class="form-select text-xs font-semibold" required onchange="togglePODFields(this.value)">
+                    <option value="" selected disabled>Pilih status checkpoint</option>
                     <option value="Diterima penerima">Diterima penerima</option>
                     <option value="Dikirim ke alamat penerima">Dikirim ke alamat penerima</option>
                     <option value="Tiba di hub Bekasi">Tiba di hub Bekasi</option>
@@ -230,7 +231,7 @@ $latestCp = end($cpList);
             <!-- Drag & Drop Bukti Serah Terima (POD) -->
             <div class="form-group mb-0" id="group-pod-upload">
                 <label class="form-label text-xs">Bukti serah terima</label>
-                <div id="dropzone-pod" class="dropzone-box" onclick="document.getElementById('input-pod-file').click()">
+                <div id="dropzone-pod" class="dropzone-box">
                     <input type="file" id="input-pod-file" name="foto_bukti" accept="image/png,image/jpeg,image/webp" class="hidden">
                     <svg class="w-6 h-6 text-slate-400 mx-auto mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
                     <div class="text-xs text-slate-600 font-medium">Seret foto ke sini atau pilih file</div>
@@ -238,7 +239,7 @@ $latestCp = end($cpList);
                 </div>
 
                 <!-- Chips representation: foto_1.jpg, ttd.png 2 file siap diunggah (Matching Screenshot 3) -->
-                <div id="pod-chips-container" class="upload-chips">
+                <template id="pod-sample-chips">
                     <span class="upload-chip">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         <span id="chip-filename">foto_1.jpg</span>
@@ -248,7 +249,8 @@ $latestCp = end($cpList);
                         <span>ttd.png</span>
                     </span>
                     <span class="text-[11px] text-slate-500 self-center">2 file siap diunggah</span>
-                </div>
+                </template>
+                <div id="pod-chips-container" class="upload-chips hidden"></div>
             </div>
 
             <!-- HTML5 Canvas Digital Signature Pad -->
@@ -277,16 +279,13 @@ $latestCp = end($cpList);
 
 <script>
     // Canvas Signature Pad Logic
-    let canvas, ctx, isDrawing = false;
+    let canvas, ctx, isDrawing = false, hasSignature = false;
 
     window.addEventListener('DOMContentLoaded', () => {
         canvas = document.getElementById('signature-canvas');
         if (canvas) {
             ctx = canvas.getContext('2d');
             resizeCanvas();
-
-            // Draw initial placeholder wave signature if empty
-            drawSampleSignature();
 
             // Touch & Mouse Event Listeners
             canvas.addEventListener('mousedown', startDrawing);
@@ -326,6 +325,9 @@ $latestCp = end($cpList);
         const fileInput = document.getElementById('input-pod-file');
 
         if (dropzone && fileInput) {
+            dropzone.addEventListener('click', (e) => {
+                if (e.target !== fileInput) fileInput.click();
+            });
             ['dragenter', 'dragover'].forEach(eventName => {
                 dropzone.addEventListener(eventName, (e) => {
                     e.preventDefault();
@@ -372,17 +374,6 @@ $latestCp = end($cpList);
         ctx.lineCap = 'round';
     }
 
-    function drawSampleSignature() {
-        ctx.strokeStyle = '#0d5c58';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(30, 70);
-        ctx.bezierCurveTo(60, 20, 100, 90, 140, 50);
-        ctx.bezierCurveTo(180, 20, 220, 80, 260, 40);
-        ctx.stroke();
-        document.getElementById('input-ttd-base64').value = canvas.toDataURL();
-    }
-
     function startDrawing(e) {
         isDrawing = true;
         const rect = canvas.getBoundingClientRect();
@@ -395,23 +386,38 @@ $latestCp = end($cpList);
         const rect = canvas.getBoundingClientRect();
         ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
         ctx.stroke();
+        hasSignature = true;
     }
 
     function stopDrawing() {
         if (isDrawing) {
             isDrawing = false;
-            document.getElementById('input-ttd-base64').value = canvas.toDataURL();
+            document.getElementById('input-ttd-base64').value = hasSignature ? canvas.toDataURL() : '';
         }
     }
 
     function clearSignaturePad() {
+        if (!ctx || !canvas) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        hasSignature = false;
         document.getElementById('input-ttd-base64').value = '';
     }
 
     function updateFileChip(filename) {
-        const chip = document.getElementById('chip-filename');
-        if (chip) chip.textContent = filename;
+        const container = document.getElementById('pod-chips-container');
+        if (!container) return;
+        container.classList.remove('hidden');
+        container.replaceChildren();
+
+        const chip = document.createElement('span');
+        chip.className = 'upload-chip';
+        chip.textContent = filename;
+        container.appendChild(chip);
+
+        const count = document.createElement('span');
+        count.className = 'text-[11px] text-slate-500 self-center';
+        count.textContent = '1 file siap diunggah';
+        container.appendChild(count);
     }
 
     function togglePODFields(status) {
@@ -419,6 +425,6 @@ $latestCp = end($cpList);
         document.getElementById('group-nama-penerima').style.display = isDelivered ? 'block' : 'none';
         document.getElementById('group-pod-upload').style.display = isDelivered ? 'block' : 'none';
         document.getElementById('group-canvas-ttd').style.display = isDelivered ? 'block' : 'none';
+        document.getElementById('checkpoint-penerima').required = isDelivered;
     }
 </script>
-

@@ -33,6 +33,28 @@ class Rute extends Model
     }
 
     /**
+     * Return routes that can currently be used to calculate or issue a shipment.
+     */
+    public function getAvailableForShipment(): array
+    {
+        $sql = "SELECT
+                    r.*,
+                    w_asal.nama_kota as asal_nama,
+                    w_asal.kode_kota as asal_kode,
+                    w_asal.provinsi as asal_provinsi,
+                    w_tujuan.nama_kota as tujuan_nama,
+                    w_tujuan.kode_kota as tujuan_kode,
+                    w_tujuan.provinsi as tujuan_provinsi
+                FROM `{$this->table}` r
+                JOIN `wilayah` w_asal ON r.kota_asal_id = w_asal.id
+                JOIN `wilayah` w_tujuan ON r.kota_tujuan_id = w_tujuan.id
+                WHERE r.status <> 'Nonaktif'
+                ORDER BY r.kode_rute ASC";
+
+        return $this->query($sql);
+    }
+
+    /**
      * Ambil 1 detail rute dengan kota asal & tujuan
      */
     public function findWithDetails($id): ?array

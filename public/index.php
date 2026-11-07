@@ -19,17 +19,18 @@ require_once CORE_DIR . '/View.php';
 
 use Core\Autoloader;
 use Core\App;
+use Core\Database;
 
 // Register Autoloader for Core, Models, Controllers, Services
 Autoloader::register();
 
-// Run Database Auto-Seeder if tables need initialization
-// Gunakan flag file agar seed tidak dijalankan ulang setiap request (performa)
-$seedFlagFile = ROOT_DIR . '/.seeded';
-if (!file_exists($seedFlagFile) && file_exists(ROOT_DIR . '/database/seed.php')) {
+// Initialize missing tables and seed the database independently of workspace marker files.
+$database = Database::getInstance();
+$database->ensureSchema(ROOT_DIR . '/database/schema.sql');
+$pdo = $database->getConnection();
+$seedUserExists = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE email = 'rizqi@kargotrack.id'")->fetchColumn() > 0;
+if (!$seedUserExists && file_exists(ROOT_DIR . '/database/seed.php')) {
     require_once ROOT_DIR . '/database/seed.php';
-    // Buat flag file agar seed hanya berjalan sekali
-    @file_put_contents($seedFlagFile, date('Y-m-d H:i:s'));
 }
 
 // Register Application Routes
@@ -74,7 +75,7 @@ App::post('manifest/berangkatkan', 'ManifestController@berangkatkan');
 // 7. Otentikasi & Keamanan Sesi
 App::get('auth/login', 'AuthController@login');
 App::post('auth/authenticate', 'AuthController@authenticate');
-App::get('auth/logout', 'AuthController@logout');
+App::post('auth/logout', 'AuthController@logout');
 
 // Execute Router
 App::run();

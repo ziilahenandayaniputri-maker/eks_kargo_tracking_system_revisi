@@ -2,6 +2,8 @@
 namespace Models;
 
 use Core\Model;
+use RuntimeException;
+use Throwable;
 
 /**
  * Model Manifest Muatan Armada Truk Kargo Antar-Kota
@@ -64,38 +66,107 @@ class Manifest extends Model
     }
 
     /**
+     * Create a manifest and atomically assign only available warehouse shipments.
+     */
+    public function createWithResi(array $data, array $resiIds): int
+    {
+        $normalizedIds = [];
+        foreach ($resiIds as $resiId) {
+            if (!is_scalar($resiId) || !ctype_digit((string)$resiId) || (int)$resiId <= 0) {
+                throw new RuntimeException('Salah satu ID resi muatan tidak valid.');
+            }
+            $normalizedIds[] = (int)$resiId;
+        }
+        $resiIds = array_values(array_unique($normalizedIds));
+        $this->db->beginTransaction();
+
+        try {
+            $manifestId = $this->create($data);
+            $select = $this->db->prepare(
+                "SELECT `id` FROM `resi`
+                 WHERE `id` = :id
+                   AND `manifest_id` IS NULL
+                   AND `status_pengiriman` = 'Paket diterima gudang'
+                 FOR UPDATE"
+            );
+            $assign = $this->db->prepare(
+                "UPDATE `resi` SET `manifest_id` = :manifest_id
+                 WHERE `id` = :id
+                   AND `manifest_id` IS NULL
+                   AND `status_pengiriman` = 'Paket diterima gudang'"
+            );
+
+            foreach ($resiIds as $resiId) {
+                $select->execute([':id' => $resiId]);
+                if (!$select->fetchColumn()) {
+                    throw new RuntimeException('Salah satu resi sudah masuk manifest lain atau belum siap dimuat. Muat ulang halaman.');
+                }
+
+                $assign->execute([':manifest_id' => $manifestId, ':id' => $resiId]);
+                if ($assign->rowCount() !== 1) {
+                    throw new RuntimeException('Resi gagal dimasukkan ke manifest. Muat ulang halaman.');
+                }
+            }
+
+            $this->db->commit();
+            return $manifestId;
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    /**
      * Berangkatkan Truk Manifest
      * Otomatis mengupdate status semua paket di manifest menjadi "Dalam perjalanan"
      * dan menambahkan tracking checkpoint "Dimuat ke truk [no_polisi] · Manifest [no_manifest]"
      */
     public function berangkatkan(int $manifestId, string $petugas = 'Petugas Dispatch'): bool
     {
-        $manifest = $this->find($manifestId);
-        if (!$manifest) return false;
+        $this->db->beginTransaction();
 
-        $this->update($manifestId, ['status' => 'Dalam Perjalanan']);
+        try {
+            $stmt = $this->db->prepare("SELECT * FROM `{$this->table}` WHERE `id` = :id FOR UPDATE");
+            $stmt->execute([':id' => $manifestId]);
+            $manifest = $stmt->fetch();
+            if (!$manifest || !in_array($manifest['status'], ['Draft', 'Siap Berangkat'], true)) {
+                $this->db->rollBack();
+                return false;
+            }
 
-        $resiList = $this->getResiInManifest($manifestId);
-        $trackingModel = new Tracking();
-        $resiModel = new Resi();
+            $this->update($manifestId, ['status' => 'Dalam Perjalanan']);
+            $resiList = $this->getResiInManifest($manifestId);
+            $trackingModel = new Tracking();
+            $resiModel = new Resi();
+            $waktu = date('Y-m-d H:i:s');
+            $statusText = "Dimuat ke truk {$manifest['no_polisi']}";
+            $keterangan = "Manifest {$manifest['no_manifest']} keberangkatan armada";
 
-        $waktu = date('Y-m-d H:i:s');
-        $statusText = "Dimuat ke truk {$manifest['no_polisi']}";
-        $keterangan = "Manifest {$manifest['no_manifest']} keberangkatan armada";
+            $originStmt = $this->db->prepare('SELECT `nama_kota` FROM `wilayah` WHERE `id` = :id');
+            $originStmt->execute([':id' => $manifest['kota_asal_id']]);
+            $lokasi = 'Gudang ' . ($originStmt->fetchColumn() ?: 'Cabang');
 
-        foreach ($resiList as $item) {
-            $resiModel->updateStatus($item['id'], 'Dalam perjalanan');
-            $trackingModel->create([
-                'resi_id' => $item['id'],
-                'status' => $statusText,
-                'lokasi' => 'Gudang Cirebon',
-                'waktu' => $waktu,
-                'petugas' => $manifest['nama_sopir'] . ' (Sopir)',
-                'keterangan' => $keterangan
-            ]);
+            foreach ($resiList as $item) {
+                $resiModel->updateStatus((int)$item['id'], 'Dalam perjalanan');
+                $trackingModel->create([
+                    'resi_id' => $item['id'],
+                    'status' => $statusText,
+                    'lokasi' => $lokasi,
+                    'waktu' => $waktu,
+                    'petugas' => $manifest['nama_sopir'] . ' (Sopir) / ' . $petugas,
+                    'keterangan' => $keterangan
+                ]);
+            }
+
+            $this->db->commit();
+            return true;
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
         }
-
-        return true;
     }
 }
-

@@ -104,6 +104,20 @@ class Resi extends Model
     }
 
     /**
+     * List warehouse-ready shipments that have not yet been assigned to a manifest.
+     */
+    public function getUnassignedForManifest(): array
+    {
+        $sql = "SELECT *
+                FROM `{$this->table}`
+                WHERE `status_pengiriman` = 'Paket diterima gudang'
+                  AND `manifest_id` IS NULL
+                ORDER BY `id` DESC";
+
+        return $this->query($sql);
+    }
+
+    /**
      * Cari Resi (Live Search)
      */
     public function search(string $keyword): array
@@ -171,4 +185,3 @@ class Resi extends Model
         ];
     }
 }
-

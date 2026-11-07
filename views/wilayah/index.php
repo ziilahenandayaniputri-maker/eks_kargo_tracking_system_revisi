@@ -186,9 +186,10 @@
             <div class="form-group mb-3">
                 <label class="form-label" for="calc-rute">Rute</label>
                 <select id="calc-rute" name="rute_id" class="form-select text-xs">
-                    <?php foreach ($ruteList as $r): ?>
+                    <?php foreach ($availableRuteList as $r): ?>
                         <option value="<?= $r['id'] ?>" 
                                 data-tarif="<?= $r['tarif_per_kg'] ?>"
+                                data-min-berat="<?= $r['min_berat_kg'] ?>"
                                 data-asal="<?= e($r['asal_nama']) ?>"
                                 data-tujuan="<?= e($r['tujuan_nama']) ?>"
                                 data-kode="<?= e($r['kode_rute']) ?>"
@@ -573,8 +574,10 @@
         if (confirm('Apakah Anda yakin ingin menghapus rute ' + kode + '?')) {
             const formData = new FormData();
             formData.append('id', id);
+            formData.append('_csrf', window.CSRF_TOKEN || '');
             fetch(window.BASE_URL + '/rute/delete', {
                 method: 'POST',
+                headers: { 'Accept': 'application/json' },
                 body: formData
             })
             .then(res => res.json())
@@ -592,8 +595,10 @@
         if (confirm('Apakah Anda yakin ingin menghapus wilayah ' + nama + '? Semua rute terkait juga akan terhapus.')) {
             const formData = new FormData();
             formData.append('id', id);
+            formData.append('_csrf', window.CSRF_TOKEN || '');
             fetch(window.BASE_URL + '/wilayah/delete', {
                 method: 'POST',
+                headers: { 'Accept': 'application/json' },
                 body: formData
             })
             .then(res => res.json())
@@ -607,4 +612,3 @@
         }
     }
 </script>
-

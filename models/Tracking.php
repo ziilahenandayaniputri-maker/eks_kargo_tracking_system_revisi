@@ -34,9 +34,12 @@ class Tracking extends Model
 
         $checkpointId = $this->create($data);
 
-        // Otomatis sinkronkan status terakhir ke tabel resi
+        // Keep the shipment status aligned with the chronologically latest checkpoint.
         $resiModel = new Resi();
-        $resiModel->updateStatus($resiId, $data['status']);
+        $latestCheckpoint = $this->getLatestCheckpoint($resiId);
+        if ($latestCheckpoint) {
+            $resiModel->updateStatus($resiId, $latestCheckpoint['status']);
+        }
 
         return $checkpointId;
     }
@@ -69,4 +72,3 @@ class Tracking extends Model
         ];
     }
 }
-

@@ -34,16 +34,30 @@ class KalkulatorController extends Controller
         if (!$rute) {
             $this->json(['success' => false, 'message' => 'Rute pengiriman tidak ditemukan.'], 404);
         }
+        if ($rute['status'] === 'Nonaktif') {
+            $this->json(['success' => false, 'message' => 'Rute nonaktif tidak dapat digunakan.'], 422);
+        }
 
         // Gunakan Polymorphic Tarif Calculator Factory
         $calculator = TarifCalculatorFactory::create($layanan);
 
         $beratVolume = $calculator->calculateVolumeWeight($panjang, $lebar, $tinggi, $koli);
-        $chargeableWeight = $calculator->getChargeableWeight($beratAktual, $beratVolume);
+        $chargeableWeight = $calculator->getChargeableWeight(
+            $beratAktual,
+            $beratVolume,
+            (float)$rute['min_berat_kg']
+        );
         $totalOngkir = $calculator->calculateTotalOngkir($chargeableWeight, (float)$rute['tarif_per_kg'], $koli);
 
         $isVolumeHigher = ($beratVolume > $beratAktual);
-        $beratDikenakanTipe = $isVolumeHigher ? 'volume' : 'aktual';
+        $minimumWeight = max((float)$rute['min_berat_kg'], match ($calculator->getServiceName()) {
+            'Express Kargo' => 2.0,
+            'Trucking FTL' => 10.0,
+            default => 1.0
+        });
+        $beratDikenakanTipe = $isVolumeHigher && $beratVolume >= $minimumWeight
+            ? 'volume'
+            : (($minimumWeight > $beratAktual) ? 'minimum' : 'aktual');
 
         $this->json([
             'success' => true,
@@ -68,4 +82,3 @@ class KalkulatorController extends Controller
         ]);
     }
 }
-

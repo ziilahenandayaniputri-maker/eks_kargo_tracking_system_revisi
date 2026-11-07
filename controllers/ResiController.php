@@ -31,6 +31,10 @@ class ResiController extends Controller
     {
         $user = $this->requireAuth();
         $ruteList = $this->ruteModel->getRuteWithWilayah('r.kode_rute ASC');
+        $availableRuteList = array_values(array_filter(
+            $ruteList,
+            static fn(array $rute): bool => $rute['status'] !== 'Nonaktif'
+        ));
 
         // Parameter dari Kalkulator Tarif ("Buat resi dari tarif ini")
         $prefill = [
@@ -52,12 +56,15 @@ class ResiController extends Controller
         ];
 
         // Ambil sampel resi aktif untuk preview awal (misal KT-CRB-261030-0047)
-        $latestResi = $this->resiModel->getDetail('KT-CRB-261030-0047') 
-                      ?? $this->resiModel->all('*', 'id DESC')[0] ?? null;
+        $requestedResiId = (int)($_GET['resi_id'] ?? 0);
+        $latestResi = $requestedResiId > 0 ? $this->resiModel->getDetail($requestedResiId) : null;
+        if ($latestResi) {
+            $prefill = array_merge($prefill, array_intersect_key($latestResi, $prefill));
+        }
 
         $this->view('resi/index', [
             'user' => $user,
-            'ruteList' => $ruteList,
+            'ruteList' => $availableRuteList,
             'prefill' => $prefill,
             'latestResi' => $latestResi,
             'pageTitle' => 'Penerbitan Resi Pengiriman - KargoTrack'
@@ -70,6 +77,7 @@ class ResiController extends Controller
     public function store(): void
     {
         $user = $this->requireAuth();
+        $this->requireCsrf('resi');
 
         $actionType = $_POST['action_type'] ?? 'terbitkan'; // 'terbitkan' atau 'draf'
         $ruteId = (int)($_POST['rute_id'] ?? 0);
@@ -77,6 +85,9 @@ class ResiController extends Controller
 
         if (!$rute) {
             $this->json(['success' => false, 'message' => 'Rute ekspedisi tidak valid.'], 422);
+        }
+        if ($rute['status'] === 'Nonaktif') {
+            $this->json(['success' => false, 'message' => 'Rute nonaktif tidak dapat digunakan untuk menerbitkan resi.'], 422);
         }
 
         $telpPengirim = trim($_POST['telp_pengirim'] ?? '');
@@ -93,7 +104,11 @@ class ResiController extends Controller
 
         $calculator = TarifCalculatorFactory::create($layanan);
         $beratVolume = $calculator->calculateVolumeWeight($panjang, $lebar, $tinggi, $koli);
-        $chargeableWeight = $calculator->getChargeableWeight($beratAktual, $beratVolume);
+        $chargeableWeight = $calculator->getChargeableWeight(
+            $beratAktual,
+            $beratVolume,
+            (float)$rute['min_berat_kg']
+        );
         $totalOngkir = $calculator->calculateTotalOngkir($chargeableWeight, (float)$rute['tarif_per_kg'], $koli);
 
         $data = [
@@ -170,7 +185,7 @@ class ResiController extends Controller
         }
 
         $this->setFlash('success', "Resi {$noResi} berhasil diterbitkan!");
-        $this->redirect('resi');
+        $this->redirect('resi?resi_id=' . $resiId);
     }
 
     /**
@@ -200,6 +215,7 @@ class ResiController extends Controller
      */
     public function printReceipt($id, $format = 'thermal'): void
     {
+        $this->requireAuth();
         $resi = $this->resiModel->getDetail($id);
         if (!$resi) {
             die("Resi tidak ditemukan.");
@@ -222,6 +238,7 @@ class ResiController extends Controller
     public function delete(): void
     {
         $this->requireAuth();
+        $this->requireCsrf('resi');
         $id = (int)($_POST['id'] ?? 0);
 
         if ($id <= 0) {
@@ -238,4 +255,3 @@ class ResiController extends Controller
         $this->redirect('resi');
     }
 }
-

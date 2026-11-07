@@ -112,5 +112,7 @@ try {
 } catch (\Exception $e) {
     if (php_sapi_name() === 'cli') {
         echo "Seed error: " . $e->getMessage() . "\n";
+    } else {
+        throw $e;
     }
 }

@@ -52,6 +52,7 @@ class AuthController extends Controller
      */
     public function authenticate(): void
     {
+        $this->requireCsrf('auth/login');
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
 
@@ -93,8 +94,8 @@ class AuthController extends Controller
      */
     public function logout(): void
     {
+        $this->requireCsrf('auth/login');
         Session::destroy();
         $this->redirect('auth/login');
     }
 }
-

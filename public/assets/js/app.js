@@ -123,6 +123,7 @@ function initKalkulatorTarif() {
     function calculate() {
         const selectedOption = ruteSelect.options[ruteSelect.selectedIndex];
         const baseRate = parseFloat(selectedOption?.dataset?.tarif || 4500);
+        const routeMinimum = parseFloat(selectedOption?.dataset?.minBerat || 0);
 
         const p = parseFloat(pInput.value) || 0;
         const l = parseFloat(lInput.value) || 0;
@@ -141,13 +142,17 @@ function initKalkulatorTarif() {
         const totalVolume = Math.round((singleVolume * koli) * 10) / 10;
 
         // Chargeable Weight
-        const chargeableWeight = Math.max(beratAktual, totalVolume);
+        const serviceMinimum = layanan === 'Express Kargo' ? 2 : (layanan === 'Trucking FTL' ? 10 : 1);
+        const chargeableWeight = Math.max(beratAktual, totalVolume, routeMinimum, serviceMinimum);
         const isVolumeHeavier = (totalVolume > beratAktual);
 
         // Multiplier Layanan
         let rateMultiplier = 1.0;
         if (layanan === 'Express Kargo') rateMultiplier = 1.35;
-        if (layanan === 'Trucking FTL' && chargeableWeight >= 50) rateMultiplier = 0.90;
+        if (layanan === 'Trucking FTL') {
+            if (chargeableWeight >= 100) rateMultiplier = 0.85;
+            else if (chargeableWeight >= 50) rateMultiplier = 0.90;
+        }
 
         const totalOngkir = Math.round(chargeableWeight * baseRate * rateMultiplier);
 
@@ -159,7 +164,9 @@ function initKalkulatorTarif() {
             displayVolume.textContent = totalVolume.toFixed(1) + ' kg';
         }
         if (displayChargeable) {
-            const typeLabel = isVolumeHeavier ? '(volume)' : '(aktual)';
+            const typeLabel = isVolumeHeavier && totalVolume >= Math.max(routeMinimum, serviceMinimum)
+                ? '(volume)'
+                : ((Math.max(routeMinimum, serviceMinimum) > beratAktual) ? '(minimum)' : '(aktual)');
             displayChargeable.textContent = `${chargeableWeight.toFixed(1)} kg ${typeLabel}`;
         }
         if (displayRate) {
@@ -338,6 +345,7 @@ function initReceiptPreview() {
         // Hitung total ongkir sinkron dengan polimorfisme layanan
         const opt = ruteSelect ? ruteSelect.options[ruteSelect.selectedIndex] : null;
         const tarif = parseFloat(opt?.dataset?.tarif || 4500);
+        const routeMinimum = parseFloat(opt?.dataset?.minBerat || 0);
         const layanan = layananSelect ? layananSelect.value : 'Reguler';
 
         let divisor = 6000;
@@ -347,11 +355,15 @@ function initReceiptPreview() {
             rateMultiplier = 1.35;
         }
 
-        const volume = (p > 0 && l > 0 && t > 0) ? ((p * l * t) / divisor) * koli : 0;
-        const chargeable = Math.max(beratAktual, volume);
+        const volume = (p > 0 && l > 0 && t > 0)
+            ? Math.round(((p * l * t) / divisor) * koli * 10) / 10
+            : 0;
+        const serviceMinimum = layanan === 'Express Kargo' ? 2 : (layanan === 'Trucking FTL' ? 10 : 1);
+        const chargeable = Math.max(beratAktual, volume, routeMinimum, serviceMinimum);
 
-        if (layanan === 'Trucking FTL' && chargeable >= 50) {
-            rateMultiplier = 0.90;
+        if (layanan === 'Trucking FTL') {
+            if (chargeable >= 100) rateMultiplier = 0.85;
+            else if (chargeable >= 50) rateMultiplier = 0.90;
         }
 
         const total = Math.round(chargeable * tarif * rateMultiplier);
@@ -470,4 +482,3 @@ function escapeHtml(text) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
-

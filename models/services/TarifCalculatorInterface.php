@@ -15,7 +15,7 @@ interface TarifCalculatorInterface
     /**
      * Tentukan berat yang dikenakan biaya (Chargeable Weight: terbesar antara aktual vs volume)
      */
-    public function getChargeableWeight(float $beratAktual, float $beratVolume): float;
+    public function getChargeableWeight(float $beratAktual, float $beratVolume, float $minimumRute = 0.0): float;
 
     /**
      * Hitung total biaya ongkir akhir
@@ -27,4 +27,3 @@ interface TarifCalculatorInterface
      */
     public function getServiceName(): string;
 }
-

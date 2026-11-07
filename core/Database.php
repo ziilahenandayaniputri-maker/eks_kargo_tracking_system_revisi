@@ -69,6 +69,38 @@ class Database
     }
 
     /**
+     * Create missing application tables from the checked-in schema.
+     */
+    public function ensureSchema(string $schemaFile): void
+    {
+        $requiredTables = ['users', 'wilayah', 'rute', 'manifest', 'resi', 'tracking_checkpoints'];
+        $existingTables = $this->connection->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
+
+        if (count(array_diff($requiredTables, $existingTables)) === 0) {
+            return;
+        }
+
+        $schema = file_get_contents($schemaFile);
+        if ($schema === false) {
+            throw new \RuntimeException('File skema database tidak dapat dibaca.');
+        }
+
+        $schema = preg_replace('/^\s*--.*$/m', '', $schema);
+        foreach (explode(';', $schema) as $statement) {
+            $statement = trim($statement);
+            if ($statement !== '') {
+                $this->connection->exec($statement);
+            }
+        }
+
+        $existingTables = $this->connection->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
+        $missingTables = array_diff($requiredTables, $existingTables);
+        if ($missingTables !== []) {
+            throw new \RuntimeException('Skema database belum lengkap: ' . implode(', ', $missingTables));
+        }
+    }
+
+    /**
      * Prevent clone
      */
     private function __clone() {}
@@ -81,4 +113,3 @@ class Database
         throw new \Exception("Cannot unserialize singleton");
     }
 }
-

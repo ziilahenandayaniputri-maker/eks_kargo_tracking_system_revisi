@@ -32,9 +32,7 @@ class ManifestController extends Controller
         $wilayahList = $this->wilayahModel->all('*', 'nama_kota ASC');
 
         // Resi siap muat (status Resi diterbitkan / Paket diterima gudang dan belum masuk manifest)
-        $unassignedResi = $this->resiModel->where([
-            'status_pengiriman' => 'Paket diterima gudang'
-        ], 'id DESC');
+        $unassignedResi = $this->resiModel->getUnassignedForManifest();
 
         $this->view('manifest/index', [
             'user' => $user,
@@ -52,6 +50,7 @@ class ManifestController extends Controller
     public function store(): void
     {
         $user = $this->requireAuth();
+        $this->requireCsrf('manifest');
 
         $data = [
             'no_manifest' => trim($_POST['no_manifest'] ?? $this->manifestModel->generateNoManifest()),
@@ -80,13 +79,19 @@ class ManifestController extends Controller
             $this->redirect('manifest');
         }
 
-        $id = $this->manifestModel->create($data);
+        $resiIds = $_POST['resi_ids'] ?? [];
+        if (!is_array($resiIds)) {
+            $this->json(['success' => false, 'message' => 'Daftar resi muatan tidak valid.'], 422);
+        }
 
-        // Jika ada resi yang dipilih untuk dimasukkan ke manifest
-        if (!empty($_POST['resi_ids']) && is_array($_POST['resi_ids'])) {
-            foreach ($_POST['resi_ids'] as $resiId) {
-                $this->resiModel->update((int)$resiId, ['manifest_id' => $id]);
+        try {
+            $id = $this->manifestModel->createWithResi($data, $resiIds);
+        } catch (\RuntimeException $e) {
+            if ($this->isAjax()) {
+                $this->json(['success' => false, 'message' => $e->getMessage()], 409);
             }
+            $this->setFlash('error', $e->getMessage());
+            $this->redirect('manifest');
         }
 
         if ($this->isAjax()) {
@@ -112,9 +117,7 @@ class ManifestController extends Controller
             $this->json(['success' => false, 'message' => 'ID manifest tidak valid.'], 400);
         }
 
-        if (!$this->verifyCsrf()) {
-            $this->json(['success' => false, 'message' => 'Token keamanan tidak valid. Silakan muat ulang halaman.'], 403);
-        }
+        $this->requireCsrf('manifest');
 
         $success = $this->manifestModel->berangkatkan($id, $user['nama'] ?? 'Admin Dispatch');
 
@@ -135,4 +138,3 @@ class ManifestController extends Controller
         $this->redirect('manifest');
     }
 }
-
